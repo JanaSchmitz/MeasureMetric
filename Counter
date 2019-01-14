@@ -1,0 +1,117 @@
+import os
+import numpy as np
+import pandas as pd
+import re
+import codecs
+
+encodings = ['utf8', 'utf16', 'ascii', 'iso8859_1', 'gb2312', 'windows1251', 'windows1252', 'shiftjis' 'big5',
+             'big5hkscs', 'utf_16_be', 'utf_16_le', 'utf_7', 'iso2022-kr', 'iso8859_6', 'iso8859_7', 'iso8859_9',
+             'cp855', 'cp866', 'ko18-r']
+
+
+def getResultDict(basePath, verbose=True):
+    encoding = ''
+    resultDict = {}
+
+    lineCounter = 0;
+    commentCounter = 0;
+    switchCounter = 0;
+    caseCounter = 0;
+    ifCounter = 0;
+    whileCounter = 0;
+    forCounter = 0;
+    enumCounter = 0;
+    emptyLineCounter = 0;
+    for projectName in os.listdir(basePath):  # root, subFolders, files in os.walk(basePath):
+
+        commentCounter = 0;
+        switchCounter = 0;
+        caseCounter = 0;
+        ifCounter = 0;
+        whileCounter = 0;
+        forCounter = 0;
+        enumCounter = 0;
+        emptyLineCounter = 0;
+        numberofClasses = 0;
+
+        for root, subFolder, files in os.walk(os.path.join(basePath, projectName)):
+            # print("ProjectName: ", projectName)
+
+            for thisFile in files:
+                # print(thisFile, root)
+                if (thisFile.endswith(".java")):
+                    success = False;
+                    numberofClasses += 1;
+
+                    for encoding in encodings:
+                        if (success is False):
+                            isCommentBlock = False;
+
+                            try:
+                                with codecs.open(os.path.join(root, thisFile), 'r', encoding) as fileInput:
+                                    for line in fileInput:
+                                        lineCounter += 1;
+                                        l = line.strip()
+                                        if not (line.strip()):
+                                            emptyLineCounter += 1
+                                        if (l.startswith("//")):
+                                            commentCounter += 1
+                                        if (isCommentBlock is True):
+                                            commentCounter += 1
+                                            if (l.startswith("*/")):
+                                                isCommentBlock = False;
+                                        if (l.startswith("/*")):
+                                            commentCounter += 1
+                                            isCommentBlock = True;
+                                            if (l.endswith("*/") is True):
+                                                isCommentBlock = False;
+                                        if (re.match(r'switch\s*\(', l)):
+                                            switchCounter += 1
+                                        if (re.match(r'case\s*:\s*', l)):
+                                            caseCounter += 1
+                                        if (re.search(r'if\s*\(\s*', l)):
+                                            ifCounter += 1
+                                        if (re.search(r'while\s*\(\s*', l)):
+                                            whileCounter += 1
+                                        if (re.search(r'for\s*\(\s*', l)):
+                                            forCounter += 1
+                                        if (re.search(r'enum\s*', l)):
+                                            enumCounter += 1
+                                        success = True;
+
+
+
+
+
+                            except:
+                                print("wrong encoding ", thisFile, encoding)
+                                success = False
+
+                            # ("Lines for ",thisFile,": ",str(lineCounter))
+                            # ("Lines with comment for ",thisFile,": ",str(commentCounter))
+
+            resultDict[projectName] = (
+            numberofClasses, lineCounter, commentCounter, emptyLineCounter, switchCounter, ifCounter, whileCounter,
+            forCounter, caseCounter, enumCounter)
+
+    return resultDict
+
+
+if __name__ == "__main__":
+    # Path to the data...
+    basePath = ""
+
+    # this is the main method running over all files in a given dictionary.
+    # it returns a dictionary (HashMap) with key=filename and 10 values
+    resultDict = getResultDict(basePath=basePath)
+
+    df = pd.DataFrame.from_records(resultDict).T
+    df.columns = ["NumberofClasses", "LineCount", "CommentCount", "EmptyLines", "switchCount", "ifCount", "whileCount",
+                  "forCount", "caseCounter", "enumCount"]
+    # Location for the hashmap
+    df.to_csv(r" ", sep=';')
+
+    print("Scanned " + str(df.shape[0]) + " files.")
+
+    means = df.agg(np.average)
+    #print(means);
